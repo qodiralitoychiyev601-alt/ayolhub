@@ -8,7 +8,7 @@ uchun ham shu ro'yxatga qator qo'shish/o'chirish yetarli.
 
 MAHALLA_LIST: list[str] = [
     "TAJRIBAKOR MFY",
-    "HAMID OLIMJON MFY",
+    "Hamid Olimjon MFY",
     "BAXMAL MFY",
     "ISHONCH MFY",
     "ZARBDOR MFY",
