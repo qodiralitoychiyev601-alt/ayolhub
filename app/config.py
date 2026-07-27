@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # --- AI (Google Gemini - bepul tarif) ---
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     model_config = SettingsConfigDict(
         env_file=".env",
