@@ -59,15 +59,23 @@ async def change_status(callback: CallbackQuery, session: AsyncSession) -> None:
         await callback.answer("Murojaat topilmadi.", show_alert=True)
         return
 
-    # Update the card text in place (both in the group and, if this is a
-    # different message, leave the other one — each chat edits its own copy).
+    # Update the card in place. Cards sent WITH media use "caption",
+    # cards sent as plain text use "text" — Telegram requires editing
+    # the correct one or it raises "there is no text in the message to edit".
     label = STATUS_LABELS.get(new_status_value, new_status_value)
-    old_text = callback.message.text or callback.message.html_text
+    old_text = callback.message.html_text or ""
     lines = old_text.split("\n")
     lines = [l for l in lines if not l.startswith("Holat:") and not l.startswith("<b>Holat:")]
     new_text = "\n".join(lines) + f"\n\n<b>Holat:</b> {label}"
 
-    await callback.message.edit_text(new_text, reply_markup=callback.message.reply_markup)
+    try:
+        if callback.message.text is not None:
+            await callback.message.edit_text(new_text, reply_markup=callback.message.reply_markup)
+        else:
+            await callback.message.edit_caption(caption=new_text, reply_markup=callback.message.reply_markup)
+    except Exception as exc:
+        print(f"[status] Kartani tahrirlashda xatolik: {exc!r}")
+
     await callback.answer(f"Holat yangilandi: {label}")
 
     # Notify the citizen.
