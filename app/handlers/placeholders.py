@@ -26,8 +26,8 @@ LINK_SECTIONS: dict[str, dict] = {
         "links": [
             ("🔗 Huquqiy Ai maslahatchi", "https://www.lawify.uz/uz"),
             ("🔗 Advice.uz — Guliston bo'limi", "https://advice.uz/oz/offices/43"),
-            ("🔗 Sayt nomi 3", "https://example.com"),
-            ("🔗 Sayt nomi 4", "https://example.com"),
+            ("🔗 Huquqiy Portal", "https://huquqiyportal.uz/"),
+            ("🔗 Inson huquqlari sayti", "http://insonhuquqlari.uz/"),
             ("📢 Huquqiy Axborot", "https://t.me/huquqiyaxborot"),
             ("📢 Yuristga murojaat", "https://t.me/yuristgamurojaat"),
         ],
