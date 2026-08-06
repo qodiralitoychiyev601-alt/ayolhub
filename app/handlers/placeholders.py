@@ -28,7 +28,7 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🔗 Sayt nomi 2", "https://example.com"),
             ("🔗 Sayt nomi 3", "https://example.com"),
             ("🔗 Sayt nomi 4", "https://example.com"),
-            ("📢 Telegram kanal 1", "https://t.me/example_channel1"),
+            ("📢 Huquqiy Axborot", "https://t.me/huquqiyaxborot"),
             ("📢 Telegram kanal 2", "https://t.me/example_channel2"),
         ],
     },
