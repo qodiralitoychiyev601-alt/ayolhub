@@ -46,6 +46,7 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🔗 Guliston ish ko'p", "https://ishkop.uz/%D0%B2%D0%B0%D0%BA%D0%B0%D0%BD%D1%81%D0%B8%D0%B8/Qizlar/%D0%93%D1%83%D0%BB%D0%B8%D1%81%D1%82%D0%B0%D0%BD"),
             ("🔗 Sirdaryo olx ish", "https://www.olx.uz/oz/rabota/syrdarinskaya-oblast/q-ayol/"),
             ("📢 Sirdaryo Ish Bor", "https://t.me/Sirdaryo_ishbo"),
+            ("📢 Guliston ish", "https://t.me/sirdaryo_ishchi_guliston"),
         ],
     },
 }
