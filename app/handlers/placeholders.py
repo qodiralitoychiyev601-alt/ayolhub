@@ -1,25 +1,75 @@
 """
-Placeholder handlers for menu sections not yet built (jobs, courses,
-grants, legal, psychology, contact). AI maslahatchi endi alohida
-app/handlers/ai.py da to'liq ishlaydi.
+Tashqi havolalar (sayt/Telegram kanal) orqali ishlaydigan bo'limlar +
+hali qurilmagan bo'limlar uchun "tez orada" xabari.
+
+Yangi havola qo'shish yoki bo'lim qo'shish uchun FAQAT LINK_SECTIONS
+lug'atini tahrirlang — pastdagi kod hech qachon o'zgartirilmasin.
 """
 
 from aiogram import F, Router
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.config import get_settings
 
 router = Router(name="placeholders")
 settings = get_settings()
 
+
+# ============================================================
+#  HAVOLALAR — shu yerni o'zgartiring, kodning qolgan qismiga
+#  tegmang. Har bir bo'lim: intro matni + havolalar ro'yxati.
+#  Har bir havola: ("Tugma matni", "https://havola.uz")
+# ============================================================
+LINK_SECTIONS: dict[str, dict] = {
+    "⚖️ Huquqiy maslahat": {
+        "intro": "⚖️ Huquqiy maslahat va ma'lumotlar uchun havolalar:",
+        "links": [
+            ("🔗 Advice.uz — Guliston bo'limi", "https://advice.uz/oz/offices/43"),
+            ("🔗 Sayt nomi 2", "https://example.com"),
+            ("🔗 Sayt nomi 3", "https://example.com"),
+            ("🔗 Sayt nomi 4", "https://example.com"),
+            ("📢 Telegram kanal 1", "https://t.me/example_channel1"),
+            ("📢 Telegram kanal 2", "https://t.me/example_channel2"),
+        ],
+    },
+    "🧠 Psixologik yordam": {
+        "intro": "🧠 Psixologik yordam uchun havolalar:",
+        "links": [
+            ("🔗 Sayt nomi 1", "https://example.com"),
+            ("🔗 Sayt nomi 2", "https://example.com"),
+            ("📢 Telegram kanal", "https://t.me/example_channel"),
+        ],
+    },
+    "💼 Ish o'rinlari": {
+        "intro": "💼 Ish o'rinlari uchun havolalar:",
+        "links": [
+            ("🔗 Ish.uz", "https://ish.uz"),
+            ("📢 Telegram kanal — vakansiyalar", "https://t.me/example_jobs"),
+        ],
+    },
+}
+
+
+# ============================================================
+#  Hali havola/kontent qo'shilmagan bo'limlar — shunchaki matn
+# ============================================================
 _COMING_SOON = {
-    "💼 Ish o'rinlari": "💼 Ish o'rinlari bo'limi tez orada to'ldiriladi.",
     "🎓 Kurslar": "🎓 Kurslar bo'limi tez orada to'ldiriladi.",
     "💰 Grantlar": "💰 Grantlar bo'limi tez orada to'ldiriladi.",
-    "⚖️ Huquqiy maslahat": "⚖️ Huquqiy maslahat bo'limi tez orada to'ldiriladi.",
-    "🧠 Psixologik yordam": "🧠 Psixologik yordam bo'limi tez orada to'ldiriladi.",
     "📞 Bog'lanish": "📞 Bog'lanish: Guliston tumani Oila va xotin-qizlar bo'limi\n☎ Tel: (tuman raqami shu yerga qo'yiladi)",
 }
+
+
+@router.message(F.text.in_(LINK_SECTIONS.keys()))
+async def send_links(message: Message) -> None:
+    section = LINK_SECTIONS[message.text]
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=label, url=url)]
+            for label, url in section["links"]
+        ]
+    )
+    await message.answer(section["intro"], reply_markup=keyboard)
 
 
 @router.message(F.text.in_(_COMING_SOON.keys()))
