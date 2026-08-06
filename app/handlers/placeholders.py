@@ -29,7 +29,7 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🔗 Sayt nomi 3", "https://example.com"),
             ("🔗 Sayt nomi 4", "https://example.com"),
             ("📢 Huquqiy Axborot", "https://t.me/huquqiyaxborot"),
-            ("📢 Telegram kanal 2", "https://t.me/example_channel2"),
+            ("📢 Yuristga murojaat", "https://t.me/yuristgamurojaat"),
         ],
     },
     "🧠 Psixologik yordam": {
