@@ -44,7 +44,7 @@ LINK_SECTIONS: dict[str, dict] = {
         "intro": "💼 Ish o'rinlari uchun havolalar:",
         "links": [
             ("🔗 Ish.uz", "https://ish.uz"),
-            ("📢 Telegram kanal — vakansiyalar", "https://t.me/example_jobs"),
+            ("📢 Sirdaryo Ish Bor", "https://t.me/Sirdaryo_ishbo"),
         ],
     },
 }
