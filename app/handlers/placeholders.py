@@ -57,6 +57,9 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🔗 Elegant Guliston", "https://t.me/elegant_guliston"),
             ("🔗 Ziyo Education", "https://t.me/ziyo_oquv_markazi"),
             ("🔗 Madinabonu o'quv markazi", "https://www.instagram.com/madinabonu_oquv_markazi?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="),
+            ("🔗 Element math", "https://t.me/element_math"),
+            ("🔗 Action study", "https://t.me/action_study"),
+            ("🔗 Guliston monomarkaz", "https://t.me/monomarkaz_guliston"),
         ],
     },
 }
