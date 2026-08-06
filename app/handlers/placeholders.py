@@ -43,7 +43,7 @@ LINK_SECTIONS: dict[str, dict] = {
     "💼 Ish o'rinlari": {
         "intro": "💼 Ish o'rinlari uchun havolalar:",
         "links": [
-            ("🔗 Ish.uz", "https://ish.uz"),
+            ("🔗 Sirdaryo olx ish", "https://www.olx.uz/oz/rabota/syrdarinskaya-oblast/q-ayol/"),
             ("📢 Sirdaryo Ish Bor", "https://t.me/Sirdaryo_ishbo"),
         ],
     },
