@@ -53,6 +53,10 @@ LINK_SECTIONS: dict[str, dict] = {
         "intro": "🎓 Kurslar bo'limi uchun havolalar.",
         "links": [
              ("🔗 Guliston academy", "https://www.gulistonacademy.com/"),
+            ("🔗 Camelot LC", "https://www.camelot-lc.uz/"),
+            ("🔗 Elegant Guliston", "https://t.me/elegant_guliston"),
+            ("🔗 Ziyo Education", "https://t.me/ziyo_oquv_markazi"),
+            ("🔗 Madinabonu o'quv markazi", "https://www.instagram.com/madinabonu_oquv_markazi?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="),
         ],
     },
 }
