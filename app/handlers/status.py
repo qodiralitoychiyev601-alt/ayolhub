@@ -8,7 +8,7 @@ from aiogram.types import Message
 router = Router(name="status")
 
 
-@router.message(F.text == "📊 Murojaat holati")
+@router.message(F.text.in_(["📊 Murojaatim holati", "📊 Murojaat holati"]))
 async def check_status(message: Message) -> None:
     """Murojaat holatini ko'rsatuvchi xandler"""
     await message.answer(
