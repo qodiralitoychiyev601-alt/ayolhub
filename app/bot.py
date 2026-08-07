@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.config import get_settings
-from app.handlers import ai, appeal, placeholders, start, status
+from app.handlers import additional_info, ai, appeal, placeholders, start, status
 from app.middlewares.db_middleware import DatabaseMiddleware
 
 logger = structlog.get_logger()
@@ -31,6 +31,7 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
     dp.include_router(start.router)
     dp.include_router(appeal.router)
     dp.include_router(status.router)
+    dp.include_router(additional_info.router)
     dp.include_router(ai.router)
     dp.include_router(placeholders.router)
 
