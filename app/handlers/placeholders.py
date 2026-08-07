@@ -69,22 +69,22 @@ LINK_SECTIONS: dict[str, dict] = {
 # 🏡 16 TA MAHALLA VA FAOLLAR MA'LUMOTLARI
 # ============================================================
 MAHALLALAR: dict[str, dict] = {
-    "m_1": {"name": "🌸 Beshbuloq MFY", "faol": "Maqsuda Usmonova", "phone": "+998 90 123 45 67"},
-    "m_2": {"name": "🛠️ Tajribakor MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 99 315 85 34"},
-    "m_3": {"name": "💧 Oqoltin MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 99 315 85 34"},
-    "m_4": {"name": "⭐ Yulduz MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 68"},
-    "m_5": {"name": "🏞️ Ulug'obod MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 70"},
-    "m_6": {"name": "🌾 Dehqonobod MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 71"},
-    "m_7": {"name": "☀️ Zarbdor MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 72"},
-    "m_8": {"name": "🌿 Soyibobod MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 73"},
-    "m_9": {"name": "🌊 Buloqboshi MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 74"},
-    "m_10": {"name": "🕊️ Humo MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 75"},
-    "m_11": {"name": "🌷 Navbahor MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 76"},
-    "m_12": {"name": "🏡 Yangiobod MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 77"},
-    "m_13": {"name": "🍎 Mevastor MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 78"},
-    "m_14": {"name": "🚀 Istiqlol MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 79"},
-    "m_15": {"name": "🏆 Guliston MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 80"},
-    "m_16": {"name": "🌅 Oltinobod MFY", "faol": "Xotin-qizlar faoli", "phone": "+998 90 123 45 81"},
+    "m_1": {"name": "🌸 Tajribakor va Oqoltin MFY", "faol": "Nigora Xalilovna", "phone": "+998 99 315 85 34"},
+    "m_2": {"name": "🛠️ Hamid Olimjon va Baxmal MFY", "faol": "Dilorom Xaqberdiyeva", "phone": "+998 90 400 02 13"},
+    "m_3": {"name": "💧 Ishonch MFY", "faol": "Dilnoza Nurmatova", "phone": "+998 99 890 24 34"},
+    "m_4": {"name": "⭐ Zarbdor MFY", "faol": "Nilufar Mamanova", "phone": "+998 93 102 84 46"},
+    "m_5": {"name": "🏞️ Mevazor MFY", "faol": "Mahbuba Sattarova", "phone": "+998 77 316 02 86"},
+    "m_6": {"name": "🌾 Yulduz MFY", "faol": "Nigora Qurbonova", "phone": "+998 95 137 23 23"},
+    "m_7": {"name": "☀️ Soyibobod MFY", "faol": "Xulkar Xoldavlatova", "phone": "+998 99 834 66 74"},
+    "m_8": {"name": "🌿 Mustaqillik va Alisher Navoiy MFY", "faol": "Fotima Tilagova", "phone": "+998 97 277 09 45"},
+    "m_9": {"name": "🌊 Chortoq va Inoqlik MFY", "faol": "Shaxnoza Kabulova", "phone": "+998 87 245 14 37"},
+    "m_10": {"name": "🕊️ Beshbuloq MFY", "faol": "Maqsuda Usmonova", "phone": "+998 99 473 36 70"},
+    "m_11": {"name": "🌷 Ahillik va Ibrat MFY", "faol": "Umida Aripjonova", "phone": "+998 99 037 31 79"},
+    "m_12": {"name": "🏡 Do'stlik va A.Yassaviy MFY", "faol": "Dildora Ataboeva", "phone": "+998 91 102 00 85"},
+    "m_13": {"name": "🍎 Sohilobod MFY", "faol": "Muyassar Djumanova", "phone": "+998 99 001 20 83"},
+    "m_14": {"name": "🚀 Furqat va Oltin vodiy MFY", "faol": "Baxriniso Mirashirova", "phone": "+998 97 564 15 76"},
+    "m_15": {"name": "🏆 Sharq xaqiqati va Birlashgan MFY", "faol": "Feruza Normatova", "phone": "+998 97 245 82 07"},
+    "m_16": {"name": "🌅 Soxil Boyovut va Terakzor MFY", "faol": "Muqaddas Xudoyberdiyeva", "phone": "+998 99 340 07 74"},
 }
 
 
