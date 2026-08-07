@@ -7,10 +7,10 @@ YAGONA guruhga (settings.GROUP_ID) yuboriladi (rasm/video/ovoz bilan birga,
 agar biriktirilgan bo'lsa).
 """
 
-from aiogram import Router, F
+from aiogram import Bot, F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, KeyboardButton, Message, ReplyKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -52,6 +52,7 @@ TYPE_LABELS = {
 
 
 def _build_group_card(appeal) -> str:
+    status_enum = AppealStatus(appeal.status) if isinstance(appeal.status, str) else appeal.status
     text = (
         f"<b>Yangi murojaat — {appeal.tracking_number}</b>\n\n"
         f"👤 <b>F.I.Sh:</b> {appeal.full_name}\n"
@@ -61,7 +62,7 @@ def _build_group_card(appeal) -> str:
         f"📌 <b>Turi:</b> {TYPE_LABELS.get(appeal.appeal_type, appeal.appeal_type)}\n"
         f"📅 <b>Sana:</b> {appeal.created_at.strftime('%Y-%m-%d %H:%M')}\n\n"
         f"💬 <b>Matn:</b>\n{appeal.message_text}\n\n"
-        f"<b>Holat:</b> {STATUS_LABELS[AppealStatus(appeal.status)]}"
+        f"<b>Holat:</b> {STATUS_LABELS.get(status_enum, appeal.status)}"
     )
     return text
 
@@ -108,7 +109,7 @@ async def process_mahalla(callback: CallbackQuery, state: FSMContext) -> None:
     mahalla_name = MAHALLA_LIST[index]
 
     await state.update_data(mahalla_name=mahalla_name)
-    await callback.message.edit_text(f"Mahalla tanlandi: <b>{mahalla_name}</b>")
+    await callback.message.edit_text(f"Mahalla tanlandi: <b>{mahalla_name}</b>", parse_mode="HTML")
     await state.set_state(AppealForm.street_and_house)
     await callback.message.answer(
         "3️⃣ Ko'cha nomi va uy raqamingizni kiriting:\n(masalan: Mustaqillik ko'chasi, 12-uy)",
@@ -249,7 +250,6 @@ async def _show_confirmation(message: Message, state: FSMContext) -> None:
         f"{media_note}\n\n"
         "Hammasi to'g'rimi? Yuborish uchun \"✅ Tasdiqlash\" tugmasini bosing."
     )
-    from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
     confirm_kb = ReplyKeyboardMarkup(
         keyboard=[
@@ -259,10 +259,10 @@ async def _show_confirmation(message: Message, state: FSMContext) -> None:
         resize_keyboard=True,
     )
     await state.set_state(AppealForm.confirm)
-    await message.answer(summary, reply_markup=confirm_kb)
+    await message.answer(summary, reply_markup=confirm_kb, parse_mode="HTML")
 
 
-# ---------- Confirm -> save + send to the single group ----------
+# ---------- Confirm -> save + send to group ----------
 
 @router.message(AppealForm.confirm, F.text == "✅ Tasdiqlash")
 async def confirm_appeal(message: Message, state: FSMContext, session: AsyncSession) -> None:
@@ -289,6 +289,7 @@ async def confirm_appeal(message: Message, state: FSMContext, session: AsyncSess
         f"Kuzatuv raqami: <b>{appeal.tracking_number}</b>\n"
         f"Holatini \"📊 Murojaatim holati\" bo'limidan kuzatib borishingiz mumkin.",
         reply_markup=get_main_menu(),
+        parse_mode="HTML",
     )
 
     card_text = _build_group_card(appeal)
@@ -301,14 +302,11 @@ async def confirm_appeal(message: Message, state: FSMContext, session: AsyncSess
 
 
 async def _send_card_to_group(message: Message, card_text: str, keyboard, appeal):
-    """Send the appeal card to the single group — with media if attached.
-    Telegram caption limit is 1024 chars, so long text is sent as a
-    separate message right after the media for long appeals."""
     bot = message.bot
     chat_id = settings.GROUP_ID
 
     if not appeal.media_type or not appeal.media_file_id:
-        return await bot.send_message(chat_id=chat_id, text=card_text, reply_markup=keyboard)
+        return await bot.send_message(chat_id=chat_id, text=card_text, reply_markup=keyboard, parse_mode="HTML")
 
     caption = card_text if len(card_text) <= 1024 else card_text[:1000] + "…"
     send_map = {
@@ -331,14 +329,16 @@ async def _send_card_to_group(message: Message, card_text: str, keyboard, appeal
         **{kwarg_name: appeal.media_file_id},
         caption=caption,
         reply_markup=keyboard,
+        parse_mode="HTML",
     )
 
     if len(card_text) > 1024:
-        # Send the full text separately so nothing is lost/truncated.
-        await bot.send_message(chat_id=chat_id, text=card_text)
+        await bot.send_message(chat_id=chat_id, text=card_text, parse_mode="HTML")
 
     return sent
-    # ---------- Guruhdagi tugmalar uchun Callback Handler ----------
+
+
+# ---------- Guruhdagi tugmalar uchun Callback Handler ----------
 
 @router.callback_query(F.data.startswith("status:") | F.data.startswith("appeal_status:"))
 async def process_status_change(callback: CallbackQuery, session: AsyncSession, bot: Bot) -> None:
