@@ -69,16 +69,13 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🌐 Grant go 🌐", "https://grantgo.uz/"),
         ],
     },
+    "📞 Bog'lanish": {
+         "intro": "📞 Bog'lanish: Guliston tumani Oila va xotin-qizlar bo'limi\n☎ Tel: (796-32-23)",
+         "links": [
+             ("Tajribakor va Oqoltin MFY", "Mahalla Xotin qizlar faoli 99-315-85-34"),
+         ],
+    },
 }
-
-
-# ============================================================
-#  Hali havola/kontent qo'shilmagan bo'limlar — shunchaki matn
-# ============================================================
-_COMING_SOON = {
-           "📞 Bog'lanish": "📞 Bog'lanish: Guliston tumani Oila va xotin-qizlar bo'limi\n☎ Tel: (tuman raqami shu yerga qo'yiladi)",
-}
-
 
 @router.message(F.text.in_(LINK_SECTIONS.keys()))
 async def send_links(message: Message) -> None:
