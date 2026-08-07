@@ -15,3 +15,5 @@ class AppealForm(StatesGroup):
 
 class AIChat(StatesGroup):
     active = State()             # "AI maslahatchi" rejimida suhbat
+    class AdditionalInfo(StatesGroup):
+    waiting = State()            # "Qo'shimcha ma'lumot kerak" bo'lgach javob kutilmoqda
