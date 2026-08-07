@@ -35,10 +35,9 @@ LINK_SECTIONS: dict[str, dict] = {
     "🧠 Psixologik yordam": {
         "intro": "🧠 Psixologik yordam uchun havolalar:",
         "links": [
-            ("🔗 Sayt nomi 1", "https://example.com"),
-            ("🔗 Sayt nomi 2", "https://example.com"),
-            ("📢 Telegram kanal", "https://t.me/example_channel"),
-        ],
+            ("🔗 Psixolog yordam", "https://t.me/psixologik_tashxis_echimbor"),
+            ("🔗 Psixolog Abidjanova Parizoda", "https://t.me/abidjanova"),
+            ("📢 Psixolog Sitora Abdurahmonova", "https://t.me/sitorabonuabdurahmanova
     },
     "💼 Ish o'rinlari": {
         "intro": "💼 Ish o'rinlari uchun havolalar:",
