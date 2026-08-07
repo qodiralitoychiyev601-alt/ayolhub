@@ -76,7 +76,10 @@ LINK_SECTIONS: dict[str, dict] = {
          ],
     },
 }
-
+_COMING_SOON = {
+    "🛠 Xizmatlar": "Ushbu bo'lim tez orada ishga tushiriladi.",
+    "📊 Statistikalar": "Ushbu bo'lim tez orada ishga tushiriladi.",
+}
 @router.message(F.text.in_(LINK_SECTIONS.keys()))
 async def send_links(message: Message) -> None:
     section = LINK_SECTIONS[message.text]
