@@ -38,6 +38,7 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🔗 Psixolog yordam", "https://t.me/psixologik_tashxis_echimbor"),
             ("🔗 Psixolog Abidjanova Parizoda", "https://t.me/abidjanova"),
             ("📢 Psixolog Sitora Abdurahmonova", "https://t.me/sitorabonuabdurahmanova"),
+         ],
     },
     "💼 Ish o'rinlari": {
         "intro": "💼 Ish o'rinlari uchun havolalar:",
