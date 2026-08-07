@@ -24,20 +24,20 @@ LINK_SECTIONS: dict[str, dict] = {
     "⚖️ Huquqiy maslahat": {
         "intro": "⚖️ Huquqiy maslahat va ma'lumotlar uchun havolalar:",
         "links": [
-            ("🔗 Huquqiy Ai maslahatchi", "https://www.lawify.uz/uz"),
-            ("🔗 Advice.uz — Guliston bo'limi", "https://advice.uz/oz/offices/43"),
-            ("🔗 Huquqiy Portal", "https://huquqiyportal.uz/"),
+            ("⚖️ Huquqiy Ai maslahatchi ⚖️", "https://www.lawify.uz/uz"),
+            ("🏛️ Advice.uz — Guliston bo'limi 🏛️", "https://advice.uz/oz/offices/43"),
+            ("🔨 Huquqiy Portal 🔨", "https://huquqiyportal.uz/"),
             ("🔗 Inson huquqlari sayti", "http://insonhuquqlari.uz/"),
-            ("📢 Huquqiy Axborot", "https://t.me/huquqiyaxborot"),
+            ("👩‍⚖️ Huquqiy Axborot 👩‍⚖️", "https://t.me/huquqiyaxborot"),
             ("📢 Yuristga murojaat", "https://t.me/yuristgamurojaat"),
         ],
     },
     "🧠 Psixologik yordam": {
         "intro": "🧠 Psixologik yordam uchun havolalar:",
         "links": [
-            ("🔗 Psixolog yordam", "https://t.me/psixologik_tashxis_echimbor"),
-            ("🔗 Psixolog Abidjanova Parizoda", "https://t.me/abidjanova"),
-            ("📢 Psixolog Sitora Abdurahmonova", "https://t.me/sitorabonuabdurahmanova"),
+            ("🌺 Psixolog yordam 🌺", "https://t.me/psixologik_tashxis_echimbor"),
+            ("🌸 Psixolog Abidjanova Parizoda 🌸", "https://t.me/abidjanova"),
+            ("🌻 Psixolog Sitora Abdurahmonova 🌻", "https://t.me/sitorabonuabdurahmanova"),
          ],
     },
     "💼 Ish o'rinlari": {
@@ -52,14 +52,21 @@ LINK_SECTIONS: dict[str, dict] = {
     "🎓 Kurslar": {
         "intro": "🎓 Kurslar bo'limi uchun havolalar.",
         "links": [
-             ("🔗 Guliston academy", "https://www.gulistonacademy.com/"),
-            ("🔗 Camelot LC", "https://www.camelot-lc.uz/"),
-            ("🔗 Elegant Guliston", "https://t.me/elegant_guliston"),
-            ("🔗 Ziyo Education", "https://t.me/ziyo_oquv_markazi"),
-            ("🔗 Madinabonu o'quv markazi", "https://www.instagram.com/madinabonu_oquv_markazi?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="),
-            ("🔗 Element math", "https://t.me/element_math"),
-            ("🔗 Action study", "https://t.me/action_study"),
-            ("🔗 Guliston monomarkaz", "https://t.me/monomarkaz_guliston"),
+            ("🎓 Guliston academy 🎓", "https://www.gulistonacademy.com/"),
+            ("👩‍🏫 Camelot LC 👩‍🏫", "https://www.camelot-lc.uz/"),
+            ("👩‍🎓 Elegant Guliston 👩‍🎓", "https://t.me/elegant_guliston"),
+            ("📚 Ziyo Education 📚", "https://t.me/ziyo_oquv_markazi"),
+            ("📐 Madinabonu o'quv markazi 📐", "https://www.instagram.com/madinabonu_oquv_markazi?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="),
+            ("🎨 Element math 🎨", "https://t.me/element_math"),
+            ("🎯 Action study 🎯", "https://t.me/action_study"),
+            ("💡 Guliston monomarkaz 💡", "https://t.me/monomarkaz_guliston"),
+        ],
+    },
+    "💰 Grantlar": {
+        "intro": "💰 Grantlar bo'limi uchun havolalar.",
+        "links": [
+            ("🎓 Grantlar uz 🎓", "https://grantlar.uz/"),
+            ("🌐 Grant go 🌐", "https://grantgo.uz/"),
         ],
     },
 }
