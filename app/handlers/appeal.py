@@ -338,3 +338,76 @@ async def _send_card_to_group(message: Message, card_text: str, keyboard, appeal
         await bot.send_message(chat_id=chat_id, text=card_text)
 
     return sent
+    # ---------- Guruhdagi tugmalar uchun Callback Handler ----------
+
+@router.callback_query(F.data.startswith("status:") | F.data.startswith("appeal_status:"))
+async def process_status_change(callback: CallbackQuery, session: AsyncSession, bot: Bot) -> None:
+    """Guruhdagi holat tugmalari bosilganda ma'lumotni yangilash"""
+    parts = callback.data.split(":")
+    if len(parts) < 3:
+        await callback.answer("Xatolik yuz berdi!", show_alert=True)
+        return
+
+    action = parts[1]
+    try:
+        appeal_id = int(parts[2])
+    except ValueError:
+        await callback.answer("ID formati xato!", show_alert=True)
+        return
+
+    action_map = {
+        "qabul": AppealStatus.ACCEPTED,
+        "jarayon": AppealStatus.IN_PROGRESS,
+        "malumot": AppealStatus.NEED_INFO,
+        "bajarildi": AppealStatus.RESOLVED,
+        "rad": AppealStatus.REJECTED,
+    }
+
+    new_status = action_map.get(action)
+    if not new_status:
+        await callback.answer("Noma'lum holat!", show_alert=True)
+        return
+
+    service = AppealService(session)
+    appeal = await service.appeal_repo.get_by_id(appeal_id)
+    if not appeal:
+        await callback.answer("Murojaat bazadan topilmadi!", show_alert=True)
+        return
+
+    # Statusni bazada yangilash
+    await service.appeal_repo.update_status(appeal_id, new_status.value)
+    await session.commit()
+
+    status_label = STATUS_LABELS.get(new_status, new_status.value)
+    await callback.answer(f"Holat o'zgartirildi: {status_label}")
+
+    # Guruhdagi kartani yangilash
+    appeal.status = new_status.value
+    updated_card_text = _build_group_card(appeal)
+
+    try:
+        if callback.message.text:
+            await callback.message.edit_text(
+                text=updated_card_text,
+                reply_markup=callback.message.reply_markup,
+                parse_mode="HTML"
+            )
+        elif callback.message.caption:
+            await callback.message.edit_caption(
+                caption=updated_card_text[:1024],
+                reply_markup=callback.message.reply_markup,
+                parse_mode="HTML"
+            )
+    except Exception:
+        pass
+
+    # Foydalanuvchiga shaxsiy xat orqali xabar yuborish
+    try:
+        user_msg = (
+            f"🔔 <b>Murojaatingiz holati o'zgardi!</b>\n\n"
+            f"Kuzatuv raqami: <b>{appeal.tracking_number}</b>\n"
+            f"Yangi holat: <b>{status_label}</b>"
+        )
+        await bot.send_message(chat_id=appeal.telegram_id, text=user_msg, parse_mode="HTML")
+    except Exception:
+        pass
