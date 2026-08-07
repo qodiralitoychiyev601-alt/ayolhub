@@ -1,93 +1,38 @@
-"""
-'Murojaatim holati' — citizen sees their own appeals.
-Also handles the status-change buttons pressed by mahalla-group operators.
-"""
+"""Bot bootstrap: creates Bot/Dispatcher, registers middlewares and routers."""
 
-from aiogram import F, Router
-from aiogram.types import CallbackQuery, Message
-from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
 
-from app.database.models import AppealStatus
-from app.repositories.citizen_repository import CitizenRepository
-from app.services.appeal_service import AppealService
+from app.config import get_settings
+from app.handlers import additional_info, ai, appeal, placeholders, start, status
+from app.middlewares.db_middleware import DatabaseMiddleware
 
-router = Router(name="status")
-
-STATUS_LABELS = {
-    "new": "🆕 Yangi",
-    "accepted": "✅ Qabul qilindi",
-    "in_progress": "🔄 Jarayonda",
-    "need_info": "ℹ️ Qo'shimcha ma'lumot kerak",
-    "resolved": "🏁 Bajarildi",
-    "rejected": "🚫 Rad etildi",
-    "closed": "🔒 Yopildi",
-}
+logger = structlog.get_logger()
 
 
-@router.message(F.text == "📊 Murojaatim holati")
-async def my_appeals(message: Message, session: AsyncSession) -> None:
-    service = AppealService(session)
-    appeals = await service.get_citizen_appeals(message.from_user.id)
+def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
+    settings = get_settings()
 
-    if not appeals:
-        await message.answer("Sizda hozircha murojaatlar mavjud emas.")
-        return
-
-    lines = ["<b>📊 Sizning murojaatlaringiz:</b>\n"]
-    for a in appeals[:20]:
-        lines.append(
-            f"• <b>{a.tracking_number}</b> — {STATUS_LABELS.get(a.status, a.status)}\n"
-            f"  {a.created_at.strftime('%Y-%m-%d')} | {a.message_text[:50]}"
-        )
-    await message.answer("\n".join(lines))
-
-
-@router.callback_query(F.data.startswith("status:"))
-async def change_status(callback: CallbackQuery, session: AsyncSession) -> None:
-    """Operator in a mahalla/admin group taps a status button on an appeal card."""
-    _, appeal_id_str, new_status_value = callback.data.split(":")
-    appeal_id = int(appeal_id_str)
-
-    service = AppealService(session)
-    appeal = await service.change_status(
-        appeal_id=appeal_id,
-        new_status=AppealStatus(new_status_value),
-        changed_by_telegram_id=callback.from_user.id,
+    bot = Bot(
+        token=settings.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
+    dp = Dispatcher(storage=MemoryStorage())
 
-    if appeal is None:
-        await callback.answer("Murojaat topilmadi.", show_alert=True)
-        return
+    # Middlewares
+    dp.message.middleware(DatabaseMiddleware())
+    dp.callback_query.middleware(DatabaseMiddleware())
 
-    # Update the card in place. Cards sent WITH media use "caption",
-    # cards sent as plain text use "text" — Telegram requires editing
-    # the correct one or it raises "there is no text in the message to edit".
-    label = STATUS_LABELS.get(new_status_value, new_status_value)
-    old_text = callback.message.html_text or ""
-    lines = old_text.split("\n")
-    lines = [l for l in lines if not l.startswith("Holat:") and not l.startswith("<b>Holat:")]
-    new_text = "\n".join(lines) + f"\n\n<b>Holat:</b> {label}"
+    # Routers — order matters: appeal FSM must be checked before generic
+    # placeholder text handlers so state-bound messages are captured first.
+    dp.include_router(start.router)
+    dp.include_router(appeal.router)
+    dp.include_router(status.router)
+    dp.include_router(additional_info.router)
+    dp.include_router(ai.router)
+    dp.include_router(placeholders.router)
 
-    try:
-        if callback.message.text is not None:
-            await callback.message.edit_text(new_text, reply_markup=callback.message.reply_markup)
-        else:
-            await callback.message.edit_caption(caption=new_text, reply_markup=callback.message.reply_markup)
-    except Exception as exc:
-        print(f"[status] Kartani tahrirlashda xatolik: {exc!r}")
-
-    await callback.answer(f"Holat yangilandi: {label}")
-
-    # Notify the citizen.
-    citizen_repo = CitizenRepository(session)
-    citizen = await citizen_repo.get_by_id(appeal.citizen_id)
-    if citizen:
-        try:
-            await callback.bot.send_message(
-                chat_id=citizen.telegram_id,
-                text=f"📢 Murojaatingiz holati yangilandi!\n\n"
-                     f"Kuzatuv raqami: {appeal.tracking_number}\n"
-                     f"Yangi holat: {label}",
-            )
-        except Exception:
-            pass  # citizen may have blocked the bot — do not crash the operator flow
+    return bot, dp
