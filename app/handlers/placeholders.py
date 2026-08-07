@@ -76,8 +76,7 @@ LINK_SECTIONS: dict[str, dict] = {
 #  Hali havola/kontent qo'shilmagan bo'limlar — shunchaki matn
 # ============================================================
 _COMING_SOON = {
-        "💰 Grantlar": "💰 Grantlar bo'limi tez orada to'ldiriladi.",
-    "📞 Bog'lanish": "📞 Bog'lanish: Guliston tumani Oila va xotin-qizlar bo'limi\n☎ Tel: (tuman raqami shu yerga qo'yiladi)",
+           "📞 Bog'lanish": "📞 Bog'lanish: Guliston tumani Oila va xotin-qizlar bo'limi\n☎ Tel: (tuman raqami shu yerga qo'yiladi)",
 }
 
 
