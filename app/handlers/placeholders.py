@@ -54,6 +54,7 @@ LINK_SECTIONS: dict[str, dict] = {
             ("🔬 Element Math", "https://t.me/element_math"),
             ("🎯 Action Study", "https://t.me/action_study"),
             ("💡 Guliston Monomarkaz", "https://t.me/monomarkaz_guliston"),
+            ("🏫 Guliston Elegant", "https://t.me/elegant_guliston"),
         ],
     },
     "💰 Grantlar": {
