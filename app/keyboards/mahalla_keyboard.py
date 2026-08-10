@@ -12,7 +12,6 @@ def get_mahalla_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-
 def get_status_keyboard(appeal_id: int) -> InlineKeyboardMarkup:
     """Buttons shown under an appeal card inside the group."""
     rows = [
