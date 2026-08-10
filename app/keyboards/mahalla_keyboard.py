@@ -17,15 +17,31 @@ def get_status_keyboard(appeal_id: int) -> InlineKeyboardMarkup:
     """Buttons shown under an appeal card inside the group."""
     rows = [
         [
-            InlineKeyboardButton(text="✅ Qabul qilindi", callback_data=f"status:{appeal_id}:accepted"),
-            InlineKeyboardButton(text="🔄 Jarayonda", callback_data=f"status:{appeal_id}:in_progress"),
+            InlineKeyboardButton(
+                text="✅ Qabul qilindi",
+                callback_data=f"status:qabul:{appeal_id}"
+            ),
+            InlineKeyboardButton(
+                text="🔄 Jarayonda",
+                callback_data=f"status:jarayon:{appeal_id}"
+            ),
         ],
         [
-            InlineKeyboardButton(text="ℹ️ Ma'lumot kerak", callback_data=f"status:{appeal_id}:need_info"),
-            InlineKeyboardButton(text="🏁 Bajarildi", callback_data=f"status:{appeal_id}:resolved"),
+            InlineKeyboardButton(
+                text="ℹ️ Ma'lumot kerak",
+                callback_data=f"status:malumot:{appeal_id}"
+            ),
+            InlineKeyboardButton(
+                text="🏁 Bajarildi",
+                callback_data=f"status:bajarildi:{appeal_id}"
+            ),
         ],
         [
-            InlineKeyboardButton(text="🚫 Rad etildi", callback_data=f"status:{appeal_id}:rejected"),
+            InlineKeyboardButton(
+                text="🚫 Rad etildi",
+                callback_data=f"status:rad:{appeal_id}"
+            ),
         ],
     ]
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
