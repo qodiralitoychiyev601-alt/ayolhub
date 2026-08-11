@@ -23,7 +23,18 @@ class Settings(BaseSettings):
     DISTRICT_NAME: str = "Guliston"
     TRACKING_PREFIX: str = "GLS"  # e.g. GLS-2026-000001
 
-    # --- AI (Google Gemini - bepul tarif) ---
+    # --- AI (Bytez orqali) ---
+    # MUHIM: Google Gemini'ning ushbu loyihaga bog'langan hisobida "AQ."
+    # formatidagi kalitlar standart REST API bilan ishlamasligi aniqlandi
+    # (Google'ning o'zida davom etayotgan, hisobga xos muammo). Shu sababli
+    # AI provayder sifatida Bytez (bytez.com) ishlatilmoqda — bitta API
+    # kalit orqali ko'plab modellarga ulanish imkonini beradi.
+    BYTEZ_API_KEY: str | None = None
+    BYTEZ_MODEL: str = "Qwen/Qwen3-4B"
+
+    # Eski Gemini sozlamalari (hozircha ishlatilmaydi, lekin kelajakda
+    # provayder qaytarilsa deb saqlab turilgan — .env'da bo'lmasa ham xato
+    # bermaydi):
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
