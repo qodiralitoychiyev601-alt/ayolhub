@@ -1,0 +1,720 @@
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/bot.py ayolhub-main/app/bot.py
+--- /tmp/orig2/ayolhub-main/app/bot.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/bot.py	2026-08-10 10:20:12.445370856 +0000
+@@ -26,13 +26,19 @@
+     dp.message.middleware(DatabaseMiddleware())
+     dp.callback_query.middleware(DatabaseMiddleware())
+ 
+-    # Routers — order matters: appeal FSM must be checked before generic
+-    # placeholder text handlers so state-bound messages are captured first.
++    # Routers — order matters:
++    # 1) start/appeal/status/additional_info/placeholders: aniq matnli
++    #    menyu tugmalarini ushlaydi (ba'zilari holatdan qat'i nazar ishlaydi).
++    # 2) ai.router ENG OXIRIDA turishi shart — chunki u AIChat.active holatida
++    #    F.text bo'yicha "hammasini tutuvchi" (catch-all) handlerga ega.
++    #    Agar u oldinroq tursa, foydalanuvchi AI suhbatida bo'lganda boshqa
++    #    menyu tugmalarini bossa ham, matn AI'ga savol sifatida yuborilib,
++    #    foydalanuvchi boshqa bo'limga chiqa olmay qolar edi.
+     dp.include_router(start.router)
+     dp.include_router(appeal.router)
+     dp.include_router(status.router)
+     dp.include_router(additional_info.router)
+-    dp.include_router(ai.router)
+     dp.include_router(placeholders.router)
++    dp.include_router(ai.router)
+ 
+     return bot, dp
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/database/models.py ayolhub-main/app/database/models.py
+--- /tmp/orig2/ayolhub-main/app/database/models.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/database/models.py	2026-08-10 10:17:00.194662027 +0000
+@@ -99,11 +99,38 @@
+     status_history: Mapped[list["AppealStatusHistory"]] = relationship(
+         back_populates="appeal", order_by="AppealStatusHistory.id"
+     )
++    media_items: Mapped[list["AppealMedia"]] = relationship(
++        back_populates="appeal", order_by="AppealMedia.position"
++    )
+ 
+     def __repr__(self) -> str:
+         return f"<Appeal {self.tracking_number} status={self.status}>"
+ 
+ 
++class AppealMedia(Base, AuditMixin):
++    """Bitta murojaatga biriktirilgan HAR BIR media fayl (rasm/video/ovoz/hujjat).
++
++    Appeal.media_type / Appeal.media_file_id ustunlari faqat BIRINCHI
++    (asosiy) faylni "eslatma" sifatida saqlaydi — orqaga moslik uchun.
++    Guruhga TO'LIQ ro'yxatni qayta yuborish yoki ko'rsatish kerak bo'lsa,
++    shu jadvaldan foydalaniladi (fuqaro bir vaqtda bir nechta rasm/video/
++    fayl biriktirishi mumkin).
++    """
++
++    __tablename__ = "appeal_media"
++
++    id: Mapped[int] = mapped_column(Integer, primary_key=True)
++    appeal_id: Mapped[int] = mapped_column(ForeignKey("appeals.id"), nullable=False, index=True)
++    media_type: Mapped[str] = mapped_column(String(20), nullable=False)
++    media_file_id: Mapped[str] = mapped_column(String(255), nullable=False)
++    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
++
++    appeal: Mapped["Appeal"] = relationship(back_populates="media_items")
++
++    def __repr__(self) -> str:
++        return f"<AppealMedia appeal_id={self.appeal_id} type={self.media_type}>"
++
++
+ class AppealStatusHistory(Base, AuditMixin):
+     """Audit trail: every status change of an appeal, who changed it and when."""
+ 
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/handlers/appeal.py ayolhub-main/app/handlers/appeal.py
+--- /tmp/orig2/ayolhub-main/app/handlers/appeal.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/handlers/appeal.py	2026-08-10 10:19:50.030834111 +0000
+@@ -10,7 +10,14 @@
+ from aiogram import Bot, F, Router
+ from aiogram.filters import StateFilter
+ from aiogram.fsm.context import FSMContext
+-from aiogram.types import CallbackQuery, KeyboardButton, Message, ReplyKeyboardMarkup
++from aiogram.types import (
++    CallbackQuery,
++    InlineKeyboardButton,
++    InlineKeyboardMarkup,
++    KeyboardButton,
++    Message,
++    ReplyKeyboardMarkup,
++)
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from app.config import get_settings
+@@ -23,6 +30,7 @@
+     get_media_step_keyboard,
+     get_phone_request_keyboard,
+ )
++from app.repositories.citizen_repository import CitizenRepository
+ from app.services.appeal_service import AppealService, NewAppealInput
+ from app.states.appeal_states import AppealForm
+ 
+@@ -31,6 +39,15 @@
+ 
+ CANCEL_TEXT = "❌ Bekor qilish"
+ SKIP_TEXT = "➡️ O'tkazib yuborish"
++DONE_TEXT = "✅ Tayyor"
++MAX_MEDIA_ITEMS = 5
++
++MEDIA_ADDED_LABELS = {
++    "photo": "📷 Rasm",
++    "video": "🎥 Video",
++    "voice": "🎙 Ovozli xabar",
++    "document": "📎 Fayl",
++}
+ 
+ STATUS_LABELS = {
+     AppealStatus.NEW: "🆕 Yangi",
+@@ -103,10 +120,14 @@
+ 
+ # ---------- Step 2: mahalla (inline) ----------
+ 
+-@router.callback_query(AppealForm.mahalla, F.data.startswith("mahalla:"))
++@router.callback_query(AppealForm.mahalla, F.data.startswith("appeal_mahalla:"))
+ async def process_mahalla(callback: CallbackQuery, state: FSMContext) -> None:
+-    index = int(callback.data.split(":")[1])
+-    mahalla_name = MAHALLA_LIST[index]
++    try:
++        index = int(callback.data.split(":")[1])
++        mahalla_name = MAHALLA_LIST[index]
++    except (ValueError, IndexError):
++        await callback.answer("Noto'g'ri tanlov. Iltimos, ro'yxatdan qayta tanlang.", show_alert=True)
++        return
+ 
+     await state.update_data(mahalla_name=mahalla_name)
+     await callback.message.edit_text(f"Mahalla tanlandi: <b>{mahalla_name}</b>", parse_mode="HTML")
+@@ -170,75 +191,97 @@
+         await message.answer("Iltimos, muammo yoki taklifingizni yozing.")
+         return
+ 
+-    await state.update_data(message_text=message.text.strip())
++    await state.update_data(message_text=message.text.strip(), media_items=[])
+     await state.set_state(AppealForm.media)
+     await message.answer(
+-        "6️⃣ Agar rasm, video yoki ovozli xabar biriktirmoqchi bo'lsangiz, "
+-        "yuboring. Aks holda o'tkazib yuborishingiz mumkin.",
+-        reply_markup=get_media_step_keyboard(),
++        "6️⃣ Agar rasm, video, ovozli xabar yoki fayl biriktirmoqchi bo'lsangiz, "
++        f"yuboring (bir nechtasini ketma-ket yuborishingiz mumkin, eng ko'pi bilan "
++        f"{MAX_MEDIA_ITEMS} ta). Aks holda o'tkazib yuborishingiz mumkin.",
++        reply_markup=get_media_step_keyboard(has_media=False),
+     )
+ 
+ 
+-# ---------- Step 6: media (optional) ----------
++# ---------- Step 6: media (optional, bir nechta fayl) ----------
+ 
+ @router.message(AppealForm.media, F.text == SKIP_TEXT)
+ async def skip_media(message: Message, state: FSMContext) -> None:
+-    await state.update_data(media_type=None, media_file_id=None)
+     await _show_confirmation(message, state)
+ 
+ 
++@router.message(AppealForm.media, F.text == DONE_TEXT)
++async def finish_media(message: Message, state: FSMContext) -> None:
++    data = await state.get_data()
++    if not data.get("media_items"):
++        await message.answer(
++            "Hali hech qanday fayl biriktirmadingiz. Fayl yuboring yoki "
++            "\"➡️ O'tkazib yuborish\" tugmasini bosing."
++        )
++        return
++    await _show_confirmation(message, state)
++
++
++async def _append_media(message: Message, state: FSMContext, media_type: str, file_id: str) -> None:
++    data = await state.get_data()
++    items: list[dict] = data.get("media_items") or []
++
++    if len(items) >= MAX_MEDIA_ITEMS:
++        await message.answer(
++            f"Eng ko'pi bilan {MAX_MEDIA_ITEMS} ta fayl biriktirishingiz mumkin. "
++            f"\"✅ Tayyor\" tugmasini bosing.",
++            reply_markup=get_media_step_keyboard(has_media=True),
++        )
++        return
++
++    items.append({"media_type": media_type, "media_file_id": file_id})
++    await state.update_data(media_items=items)
++
++    label = MEDIA_ADDED_LABELS.get(media_type, "Fayl")
++    await message.answer(
++        f"{label} qabul qilindi ({len(items)}/{MAX_MEDIA_ITEMS}).\n"
++        f"Yana fayl biriktirishingiz mumkin yoki \"✅ Tayyor\" tugmasini bosing.",
++        reply_markup=get_media_step_keyboard(has_media=True),
++    )
++
++
+ @router.message(AppealForm.media, F.photo)
+ async def receive_photo(message: Message, state: FSMContext) -> None:
+-    await state.update_data(
+-        media_type=MediaType.PHOTO.value, media_file_id=message.photo[-1].file_id
+-    )
+-    await _show_confirmation(message, state)
++    await _append_media(message, state, MediaType.PHOTO.value, message.photo[-1].file_id)
+ 
+ 
+ @router.message(AppealForm.media, F.video)
+ async def receive_video(message: Message, state: FSMContext) -> None:
+-    await state.update_data(
+-        media_type=MediaType.VIDEO.value, media_file_id=message.video.file_id
+-    )
+-    await _show_confirmation(message, state)
++    await _append_media(message, state, MediaType.VIDEO.value, message.video.file_id)
+ 
+ 
+ @router.message(AppealForm.media, F.voice)
+ async def receive_voice(message: Message, state: FSMContext) -> None:
+-    await state.update_data(
+-        media_type=MediaType.VOICE.value, media_file_id=message.voice.file_id
+-    )
+-    await _show_confirmation(message, state)
++    await _append_media(message, state, MediaType.VOICE.value, message.voice.file_id)
+ 
+ 
+ @router.message(AppealForm.media, F.document)
+ async def receive_document(message: Message, state: FSMContext) -> None:
+-    await state.update_data(
+-        media_type=MediaType.DOCUMENT.value, media_file_id=message.document.file_id
+-    )
+-    await _show_confirmation(message, state)
++    await _append_media(message, state, MediaType.DOCUMENT.value, message.document.file_id)
+ 
+ 
+ @router.message(AppealForm.media)
+ async def media_step_invalid(message: Message) -> None:
+     await message.answer(
+         "Iltimos, rasm, video, ovozli xabar yoki fayl yuboring, "
+-        "yoki \"➡️ O'tkazib yuborish\" tugmasini bosing."
++        "\"✅ Tayyor\" yoki \"➡️ O'tkazib yuborish\" tugmasini bosing."
+     )
+ 
+ 
+ async def _show_confirmation(message: Message, state: FSMContext) -> None:
+     data = await state.get_data()
++    items: list[dict] = data.get("media_items") or []
+ 
+     media_note = ""
+-    if data.get("media_type"):
+-        media_labels = {
+-            "photo": "📷 Rasm biriktirildi",
+-            "video": "🎥 Video biriktirildi",
+-            "voice": "🎙 Ovozli xabar biriktirildi",
+-            "document": "📎 Fayl biriktirildi",
+-        }
+-        media_note = f"\n{media_labels.get(data['media_type'], '')}"
++    if items:
++        counts: dict[str, int] = {}
++        for item in items:
++            counts[item["media_type"]] = counts.get(item["media_type"], 0) + 1
++        parts = [f"{MEDIA_ADDED_LABELS.get(t, t)} x{c}" for t, c in counts.items()]
++        media_note = f"\n📎 Biriktirilgan fayllar: {', '.join(parts)} (jami {len(items)} ta)"
+ 
+     summary = (
+         "📋 <b>Ma'lumotlaringizni tekshiring:</b>\n\n"
+@@ -278,10 +321,13 @@
+             street_and_house=data["street_and_house"],
+             phone_number=data["phone_number"],
+             message_text=data["message_text"],
+-            media_type=data.get("media_type"),
+-            media_file_id=data.get("media_file_id"),
++            media_items=data.get("media_items") or [],
+         )
+     )
++    # appeal.media_items shu obyekt yaratilgan sessiyada allaqachon xotirada
++    # to'ldirilgan (repository.create() ichida .append() qilingan), shuning
++    # uchun uni qayta so'rovsiz, xavfsiz o'qish mumkin.
++    media_items = list(appeal.media_items)
+ 
+     await state.clear()
+     await message.answer(
+@@ -295,38 +341,46 @@
+     card_text = _build_group_card(appeal)
+     keyboard = get_status_keyboard(appeal.id)
+ 
+-    sent_message = await _send_card_to_group(message, card_text, keyboard, appeal)
++    sent_message = await _send_card_to_group(message, card_text, keyboard, appeal, media_items)
+     if sent_message:
+         await service.appeal_repo.set_group_message_id(appeal.id, sent_message.message_id)
+         await session.commit()
+ 
+ 
+-async def _send_card_to_group(message: Message, card_text: str, keyboard, appeal):
++_SEND_MAP_NAMES = {
++    MediaType.PHOTO.value: "send_photo",
++    MediaType.VIDEO.value: "send_video",
++    MediaType.VOICE.value: "send_voice",
++    MediaType.DOCUMENT.value: "send_document",
++}
++_FILE_KWARG_NAMES = {
++    MediaType.PHOTO.value: "photo",
++    MediaType.VIDEO.value: "video",
++    MediaType.VOICE.value: "voice",
++    MediaType.DOCUMENT.value: "document",
++}
++
++
++async def _send_card_to_group(message: Message, card_text: str, keyboard, appeal, media_items: list):
++    """Murojaat kartasini guruhga yuboradi. Agar bir nechta fayl biriktirilgan
++    bo'lsa — BIRINCHISI asosiy karta (tugmalar bilan) sifatida, qolganlari esa
++    alohida, kuzatuv raqamiga ishora qiluvchi xabarlar sifatida yuboriladi —
++    shu bilan hech qanday fayl yo'qolib qolmaydi."""
+     bot = message.bot
+     chat_id = settings.GROUP_ID
+ 
+-    if not appeal.media_type or not appeal.media_file_id:
++    if not media_items:
+         return await bot.send_message(chat_id=chat_id, text=card_text, reply_markup=keyboard, parse_mode="HTML")
+ 
+     caption = card_text if len(card_text) <= 1024 else card_text[:1000] + "…"
+-    send_map = {
+-        MediaType.PHOTO.value: bot.send_photo,
+-        MediaType.VIDEO.value: bot.send_video,
+-        MediaType.VOICE.value: bot.send_voice,
+-        MediaType.DOCUMENT.value: bot.send_document,
+-    }
+-    file_kwarg = {
+-        MediaType.PHOTO.value: "photo",
+-        MediaType.VIDEO.value: "video",
+-        MediaType.VOICE.value: "voice",
+-        MediaType.DOCUMENT.value: "document",
+-    }
+-    sender = send_map[appeal.media_type]
+-    kwarg_name = file_kwarg[appeal.media_type]
++
++    first = media_items[0]
++    sender = getattr(bot, _SEND_MAP_NAMES[first.media_type])
++    kwarg_name = _FILE_KWARG_NAMES[first.media_type]
+ 
+     sent = await sender(
+         chat_id=chat_id,
+-        **{kwarg_name: appeal.media_file_id},
++        **{kwarg_name: first.media_file_id},
+         caption=caption,
+         reply_markup=keyboard,
+         parse_mode="HTML",
+@@ -335,6 +389,21 @@
+     if len(card_text) > 1024:
+         await bot.send_message(chat_id=chat_id, text=card_text, parse_mode="HTML")
+ 
++    # Qolgan fayllarni (2-, 3-, ...) navbat bilan yuboramiz. Bittasi
++    # muvaffaqiyatsiz bo'lsa ham, qolganlari va asosiy karta baribir yetib boradi.
++    total = len(media_items)
++    for idx, item in enumerate(media_items[1:], start=2):
++        try:
++            extra_sender = getattr(bot, _SEND_MAP_NAMES[item.media_type])
++            extra_kwarg = _FILE_KWARG_NAMES[item.media_type]
++            await extra_sender(
++                chat_id=chat_id,
++                **{extra_kwarg: item.media_file_id},
++                caption=f"📎 {appeal.tracking_number} — qo'shimcha fayl ({idx}/{total})",
++            )
++        except Exception as exc:
++            print(f"[appeal] Qo'shimcha faylni yuborishda xatolik ({appeal.tracking_number}): {exc!r}")
++
+     return sent
+ 
+ 
+@@ -374,19 +443,23 @@
+         await callback.answer("Murojaat bazadan topilmadi!", show_alert=True)
+         return
+ 
+-    # Statusni bazada yangilash
+-    await service.appeal_repo.update_status(
+-        appeal_id,
+-        new_status,
++    status_label = STATUS_LABELS.get(new_status, new_status.value)
++
++    # Statusni bazada yangilash (tarixga operator ID'si bilan birga yoziladi).
++    # AppealService.change_status o'zi ichida session.commit() ni bajaradi.
++    appeal = await service.change_status(
++        appeal_id=appeal_id,
++        new_status=new_status,
+         changed_by_telegram_id=callback.from_user.id,
++        comment=f"Operator ({callback.from_user.full_name}) holatni '{status_label}' ga o'zgartirdi",
+     )
+-    await session.commit()
++    if appeal is None:
++        await callback.answer("Murojaat bazadan topilmadi!", show_alert=True)
++        return
+ 
+-    status_label = STATUS_LABELS.get(new_status, new_status.value)
+     await callback.answer(f"Holat o'zgartirildi: {status_label}")
+ 
+     # Guruhdagi kartani yangilash
+-    appeal.status = new_status.value
+     updated_card_text = _build_group_card(appeal)
+ 
+     try:
+@@ -402,16 +475,47 @@
+                 reply_markup=callback.message.reply_markup,
+                 parse_mode="HTML"
+             )
+-    except Exception:
+-        pass
++    except Exception as exc:
++        print(f"[appeal] Guruh kartasini yangilashda xatolik ({appeal.tracking_number}): {exc!r}")
++
++    # Fuqaroga shaxsiy xabar yuborish.
++    # MUHIM: Appeal modelida telegram_id maydoni YO'Q (faqat citizen_id FK bor) —
++    # shuning uchun Citizen jadvalidan alohida so'rov orqali olamiz.
++    citizen_repo = CitizenRepository(session)
++    citizen = await citizen_repo.get_by_id(appeal.citizen_id)
++
++    if citizen is None:
++        print(f"[appeal] Citizen topilmadi (appeal={appeal.tracking_number}), xabar yuborilmadi.")
++        return
+ 
+-    # Foydalanuvchiga shaxsiy xat orqali xabar yuborish
+     try:
+-        user_msg = (
+-            f"🔔 <b>Murojaatingiz holati o'zgardi!</b>\n\n"
+-            f"Kuzatuv raqami: <b>{appeal.tracking_number}</b>\n"
+-            f"Yangi holat: <b>{status_label}</b>"
+-        )
+-        await bot.send_message(chat_id=appeal.telegram_id, text=user_msg, parse_mode="HTML")
+-    except Exception:
+-        pass
++        if new_status == AppealStatus.NEED_INFO:
++            # "Ma'lumot kerak" bosilganda — fuqarodan aniq nima kerakligini
++            # so'raymiz va "📎 Ma'lumot yuborish" tugmasi bilan to'g'ridan-to'g'ri
++            # additional_info.py oqimiga yo'naltiramiz.
++            user_msg = (
++                f"ℹ️ <b>Murojaatingiz bo'yicha qo'shimcha ma'lumot kerak!</b>\n\n"
++                f"Kuzatuv raqami: <b>{appeal.tracking_number}</b>\n\n"
++                f"Iltimos, quyidagilardan birini yuboring:\n"
++                f"• Pasport seriya va raqamingiz (matn)\n"
++                f"• Pasport nusxasi (rasm)\n"
++                f"• Yoki operator so'ragan boshqa hujjat/rasm\n\n"
++                f"Pastdagi tugmani bosib yuborishingiz mumkin 👇"
++            )
++            kb = InlineKeyboardMarkup(
++                inline_keyboard=[[
++                    InlineKeyboardButton(
++                        text="📎 Ma'lumot yuborish", callback_data=f"addinfo:{appeal.id}"
++                    )
++                ]]
++            )
++            await bot.send_message(chat_id=citizen.telegram_id, text=user_msg, parse_mode="HTML", reply_markup=kb)
++        else:
++            user_msg = (
++                f"🔔 <b>Murojaatingiz holati o'zgardi!</b>\n\n"
++                f"Kuzatuv raqami: <b>{appeal.tracking_number}</b>\n"
++                f"Yangi holat: <b>{status_label}</b>"
++            )
++            await bot.send_message(chat_id=citizen.telegram_id, text=user_msg, parse_mode="HTML")
++    except Exception as exc:
++        print(f"[appeal] Fuqaroga xabar yuborishda xatolik ({appeal.tracking_number}): {exc!r}")
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/handlers/placeholders.py ayolhub-main/app/handlers/placeholders.py
+--- /tmp/orig2/ayolhub-main/app/handlers/placeholders.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/handlers/placeholders.py	2026-08-10 10:18:22.360679549 +0000
+@@ -90,16 +90,23 @@
+ 
+ 
+ def make_mahalla_keyboard() -> InlineKeyboardMarkup:
+-    """16 ta mahallani 2 ustunli chiroyli tugmalar ko'rinishida chiqarish"""
++    """16 ta mahallani 2 ustunli chiroyli tugmalar ko'rinishida chiqarish.
++
++    Prefiks "contact_mahalla:" — shunchaki ma'lumot ko'rsatish (faol bilan
++    bog'lanish) uchun ekanini bildiradi va app/keyboards/mahalla_keyboard.py
++    dagi "appeal_mahalla:" (murojaat FSM oqimi) bilan HECH QACHON to'qnashmaydi.
++    """
+     buttons = []
+     keys = list(MAHALLALAR.keys())
+     for i in range(0, len(keys), 2):
+         row = [
+-            InlineKeyboardButton(text=MAHALLALAR[keys[i]]["name"], callback_data=f"mahalla:{keys[i]}")
++            InlineKeyboardButton(text=MAHALLALAR[keys[i]]["name"], callback_data=f"contact_mahalla:{keys[i]}")
+         ]
+         if i + 1 < len(keys):
+             row.append(
+-                InlineKeyboardButton(text=MAHALLALAR[keys[i + 1]]["name"], callback_data=f"mahalla:{keys[i + 1]}")
++                InlineKeyboardButton(
++                    text=MAHALLALAR[keys[i + 1]]["name"], callback_data=f"contact_mahalla:{keys[i + 1]}"
++                )
+             )
+         buttons.append(row)
+     return InlineKeyboardMarkup(inline_keyboard=buttons)
+@@ -133,7 +140,7 @@
+     await message.answer(text, reply_markup=make_mahalla_keyboard(), parse_mode="Markdown")
+ 
+ 
+-@router.callback_query(F.data.startswith("mahalla:"))
++@router.callback_query(F.data.startswith("contact_mahalla:"))
+ async def mahalla_info_callback(callback: CallbackQuery) -> None:
+     """Mahalla faoli haqida ma'lumot ko'rsatish"""
+     m_key = callback.data.split(":")[1]
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/handlers/status.py ayolhub-main/app/handlers/status.py
+--- /tmp/orig2/ayolhub-main/app/handlers/status.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/handlers/status.py	2026-08-10 10:20:02.496260916 +0000
+@@ -1,18 +1,66 @@
+ """
+ Murojaatlar holatini tekshirish bo'limi.
++
++Fuqaro "📊 Murojaatim holati" tugmasini bosganda, uning Telegram ID'si
++bo'yicha bazadan barcha murojaatlari (eng yangisidan boshlab) chiqariladi.
+ """
+ 
+ from aiogram import F, Router
+ from aiogram.types import Message
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from app.database.models import Appeal, AppealStatus
++from app.services.appeal_service import AppealService
+ 
+ router = Router(name="status")
+ 
++STATUS_LABELS = {
++    AppealStatus.NEW: "🆕 Yangi",
++    AppealStatus.ACCEPTED: "✅ Qabul qilindi",
++    AppealStatus.IN_PROGRESS: "🔄 Jarayonda",
++    AppealStatus.NEED_INFO: "ℹ️ Qo'shimcha ma'lumot kerak",
++    AppealStatus.RESOLVED: "🏁 Bajarildi",
++    AppealStatus.REJECTED: "🚫 Rad etildi",
++    AppealStatus.CLOSED: "🔒 Yopildi",
++}
+ 
+-@router.message(F.text.in_(["📊 Murojaatim holati", "📊 Murojaat holati"]))
+-async def check_status(message: Message) -> None:
+-    """Murojaat holatini ko'rsatuvchi xandler"""
+-    await message.answer(
+-        "📊 **Murojaatingiz holati:**\n\n"
+-        "Sizda hozircha ko'rib chiqilayotgan murojaatlar mavjud emas.",
+-        parse_mode="Markdown"
++MAX_SHOWN = 10  # bitta xabarda ko'rsatiladigan eng ko'p murojaatlar soni
++
++
++def _status_label(appeal: Appeal) -> str:
++    status = AppealStatus(appeal.status) if isinstance(appeal.status, str) else appeal.status
++    return STATUS_LABELS.get(status, str(appeal.status))
++
++
++def _format_appeal_line(appeal: Appeal) -> str:
++    date_str = appeal.created_at.strftime("%Y-%m-%d %H:%M")
++    return (
++        f"🔹 <b>{appeal.tracking_number}</b>\n"
++        f"   Holat: {_status_label(appeal)}\n"
++        f"   Sana: {date_str}"
+     )
++
++
++@router.message(F.text.in_(["📊 Murojaatim holati", "📊 Murojaat holati"]))
++async def check_status(message: Message, session: AsyncSession) -> None:
++    """Fuqaroning barcha murojaatlarini holati bilan birga ko'rsatadi."""
++    service = AppealService(session)
++    appeals = await service.get_citizen_appeals(message.from_user.id)
++
++    if not appeals:
++        await message.answer(
++            "📊 <b>Murojaatingiz holati:</b>\n\n"
++            "Sizda hozircha yuborilgan murojaatlar mavjud emas.\n\n"
++            "Murojaat yuborish uchun \"📝 Murojaat yuborish\" tugmasidan foydalaning."
++        )
++        return
++
++    shown = appeals[:MAX_SHOWN]
++    lines = [f"📊 <b>Sizning murojaatlaringiz ({len(appeals)} ta):</b>\n"]
++    lines.extend(_format_appeal_line(a) for a in shown)
++
++    remaining = len(appeals) - len(shown)
++    if remaining > 0:
++        lines.append(f"\n… va yana {remaining} ta murojaat.")
++
++    await message.answer("\n\n".join(lines))
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/keyboards/mahalla_keyboard.py ayolhub-main/app/keyboards/mahalla_keyboard.py
+--- /tmp/orig2/ayolhub-main/app/keyboards/mahalla_keyboard.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/keyboards/mahalla_keyboard.py	2026-08-10 10:18:07.560144521 +0000
+@@ -6,8 +6,11 @@
+ 
+ 
+ def get_mahalla_keyboard() -> InlineKeyboardMarkup:
++    # Prefiks "appeal_mahalla:" — bu murojaat (Appeal) FSM oqimiga tegishli
++    # tanlov ekanini bildiradi va placeholders.py dagi "contact_mahalla:"
++    # prefiksi bilan HECH QACHON to'qnashmaydi.
+     rows = [
+-        [InlineKeyboardButton(text=name, callback_data=f"mahalla:{i}")]
++        [InlineKeyboardButton(text=name, callback_data=f"appeal_mahalla:{i}")]
+         for i, name in enumerate(MAHALLA_LIST)
+     ]
+     return InlineKeyboardMarkup(inline_keyboard=rows)
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/keyboards/main_menu.py ayolhub-main/app/keyboards/main_menu.py
+--- /tmp/orig2/ayolhub-main/app/keyboards/main_menu.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/keyboards/main_menu.py	2026-08-10 10:18:00.699956432 +0000
+@@ -33,15 +33,21 @@
+     )
+ 
+ 
+-def get_media_step_keyboard() -> ReplyKeyboardMarkup:
+-    return ReplyKeyboardMarkup(
+-        keyboard=[
++def get_media_step_keyboard(has_media: bool = False) -> ReplyKeyboardMarkup:
++    """has_media=True bo'lsa — foydalanuvchi allaqachon kamida 1 ta fayl
++    biriktirgan, shuning uchun "✅ Tayyor" tugmasi ko'rsatiladi ("O'tkazib
++    yuborish" endi mantiqsiz, chunki fayl allaqachon bor)."""
++    if has_media:
++        rows = [
++            [KeyboardButton(text="✅ Tayyor")],
++            [KeyboardButton(text="❌ Bekor qilish")],
++        ]
++    else:
++        rows = [
+             [KeyboardButton(text="➡️ O'tkazib yuborish")],
+             [KeyboardButton(text="❌ Bekor qilish")],
+-        ],
+-        resize_keyboard=True,
+-        one_time_keyboard=True,
+-    )
++        ]
++    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, one_time_keyboard=True)
+ 
+ 
+ def get_ai_chat_keyboard() -> ReplyKeyboardMarkup:
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/repositories/appeal_repository.py ayolhub-main/app/repositories/appeal_repository.py
+--- /tmp/orig2/ayolhub-main/app/repositories/appeal_repository.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/repositories/appeal_repository.py	2026-08-10 10:21:27.765116957 +0000
+@@ -5,6 +5,7 @@
+ 
+ from app.database.models import (
+     Appeal,
++    AppealMedia,
+     AppealStatus,
+     AppealStatusHistory,
+     AppealType,
+@@ -29,9 +30,32 @@
+         phone_number: str,
+         message_text: str,
+         appeal_type: AppealType = AppealType.COMPLAINT,
+-        media_type: str | None = None,
+-        media_file_id: str | None = None,
++        media_items: list[dict] | None = None,
+     ) -> Appeal:
++        """media_items: [{"media_type": "photo", "media_file_id": "..."}, ...]
++        Fuqaro bir vaqtda bir nechta rasm/video/ovoz/fayl biriktirishi mumkin —
++        hammasi shu ro'yxatda keladi. Birinchi element orqaga moslik uchun
++        Appeal.media_type / media_file_id ustunlariga ham nusxalanadi."""
++        media_items = media_items or []
++        first_type = media_items[0]["media_type"] if media_items else None
++        first_file_id = media_items[0]["media_file_id"] if media_items else None
++
++        # MUHIM: media_items relationship'ini KONSTRUKTOR ichida to'g'ridan-to'g'ri
++        # beramiz (keyinroq .append() emas). Agar avval flush() qilib, keyin
++        # appeal.media_items ga append qilishga urinsak, SQLAlchemy buni
++        # "persistent" obyekt deb hisoblab, uni bazadan qayta yuklashga
++        # (lazy-load) urinadi — bu esa async sessiyada MissingGreenlet xatosini
++        # beradi. Konstruktor orqali bersak, kolleksiya boshidanoq xotirada
++        # tayyor turadi, hech qanday keyingi so'rov kerak bo'lmaydi.
++        media_objects = [
++            AppealMedia(
++                media_type=item["media_type"],
++                media_file_id=item["media_file_id"],
++                position=position,
++            )
++            for position, item in enumerate(media_items)
++        ]
++
+         appeal = Appeal(
+             tracking_number=tracking_number,
+             citizen_id=citizen_id,
+@@ -42,8 +66,9 @@
+             message_text=message_text,
+             appeal_type=appeal_type,
+             status=AppealStatus.NEW,
+-            media_type=media_type,
+-            media_file_id=media_file_id,
++            media_type=first_type,
++            media_file_id=first_file_id,
++            media_items=media_objects,
+         )
+         self.session.add(appeal)
+         await self.session.flush()
+@@ -60,6 +85,12 @@
+         await self.session.flush()
+         return appeal
+ 
++    async def get_media(self, appeal_id: int) -> list[AppealMedia]:
++        result = await self.session.execute(
++            select(AppealMedia).where(AppealMedia.appeal_id == appeal_id).order_by(AppealMedia.position)
++        )
++        return list(result.scalars().all())
++
+     async def get_by_tracking_number(self, tracking_number: str) -> Appeal | None:
+         result = await self.session.execute(
+             select(Appeal).where(Appeal.tracking_number == tracking_number)
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/services/appeal_service.py ayolhub-main/app/services/appeal_service.py
+--- /tmp/orig2/ayolhub-main/app/services/appeal_service.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/services/appeal_service.py	2026-08-10 10:17:48.425415890 +0000
+@@ -25,8 +25,7 @@
+     phone_number: str
+     message_text: str
+     appeal_type: AppealType = AppealType.COMPLAINT
+-    media_type: str | None = None
+-    media_file_id: str | None = None
++    media_items: list[dict] | None = None  # [{"media_type": "photo", "media_file_id": "..."}, ...]
+ 
+ 
+ class AppealService:
+@@ -57,8 +56,7 @@
+             phone_number=data.phone_number,
+             message_text=data.message_text,
+             appeal_type=data.appeal_type,
+-            media_type=data.media_type,
+-            media_file_id=data.media_file_id,
++            media_items=data.media_items,
+         )
+ 
+         await self.session.commit()
+diff -ru '--exclude=.env' '--exclude=*.db' '--exclude=__pycache__' /tmp/orig2/ayolhub-main/app/states/appeal_states.py ayolhub-main/app/states/appeal_states.py
+--- /tmp/orig2/ayolhub-main/app/states/appeal_states.py	2026-08-10 07:41:32.000000000 +0000
++++ ayolhub-main/app/states/appeal_states.py	2026-08-10 10:20:17.574887023 +0000
+@@ -15,5 +15,7 @@
+ 
+ class AIChat(StatesGroup):
+     active = State()             # "AI maslahatchi" rejimida suhbat
++
++
+ class AdditionalInfo(StatesGroup):
+     waiting = State()            # "Qo'shimcha ma'lumot kerak" bo'lgach javob kutilmoqda
