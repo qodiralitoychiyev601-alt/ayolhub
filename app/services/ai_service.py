@@ -37,7 +37,7 @@ async def ask_ai(user_message: str) -> str:
     if not settings.GEMINI_API_KEY:
         return (
             "🤖 AI maslahatchi hozircha sozlanmagan. "
-            "Administrator GEMINI_API_KEY ni .env fayliga qo'shishi kerak."
+            "Administrator GEMINI_API_KEY ni Railway Variables'ga qo'shishi kerak."
         )
 
     url = GEMINI_URL_TEMPLATE.format(model=settings.GEMINI_MODEL)
@@ -57,7 +57,32 @@ async def ask_ai(user_message: str) -> str:
 
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
-    except httpx.HTTPStatusError:
+    except httpx.HTTPStatusError as exc:
+        # MUHIM: xato sababini Railway loglariga chiqaramiz (foydalanuvchiga
+        # emas!). Shu qatorsiz, nima uchun ishlamayotganini hech qachon
+        # bilib bo'lmas edi — status kodi va Google'ning javobi endi
+        # `railway logs` orqali ko'rinadi.
+        body_preview = exc.response.text[:500]
+        print(
+            f"[ai_service] Gemini HTTP xatosi: status={exc.response.status_code} "
+            f"model={settings.GEMINI_MODEL} body={body_preview!r}"
+        )
+        if exc.response.status_code in (401, 403):
+            return (
+                "Kechirasiz, AI xizmati sozlamalarida muammo bor "
+                "(API kalit noto'g'ri yoki ruxsat yo'q). Administratorga xabar berildi."
+            )
+        if exc.response.status_code == 429:
+            return (
+                "Hozir AI xizmatiga so'rovlar juda ko'p. Iltimos, bir necha "
+                "daqiqadan so'ng qayta urinib ko'ring."
+            )
         return "Kechirasiz, AI xizmatiga ulanishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring."
-    except (KeyError, IndexError, httpx.RequestError):
+
+    except (KeyError, IndexError) as exc:
+        print(f"[ai_service] Gemini javobini o'qishda xatolik: {exc!r} | data={data!r}")
+        return "Kechirasiz, javob olishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring."
+
+    except httpx.RequestError as exc:
+        print(f"[ai_service] Gemini'ga ulanishda tarmoq xatosi: {exc!r}")
         return "Kechirasiz, javob olishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring."
