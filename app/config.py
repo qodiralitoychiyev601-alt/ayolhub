@@ -23,18 +23,20 @@ class Settings(BaseSettings):
     DISTRICT_NAME: str = "Guliston"
     TRACKING_PREFIX: str = "GLS"  # e.g. GLS-2026-000001
 
-    # --- AI (Bytez orqali) ---
-    # MUHIM: Google Gemini'ning ushbu loyihaga bog'langan hisobida "AQ."
-    # formatidagi kalitlar standart REST API bilan ishlamasligi aniqlandi
-    # (Google'ning o'zida davom etayotgan, hisobga xos muammo). Shu sababli
-    # AI provayder sifatida Bytez (bytez.com) ishlatilmoqda — bitta API
-    # kalit orqali ko'plab modellarga ulanish imkonini beradi.
-    BYTEZ_API_KEY: str | None = None
-    BYTEZ_MODEL: str = "Qwen/Qwen3-4B"
+    # --- AI (Groq orqali — permanent bepul tarif) ---
+    # TARIX: Avval Google Gemini ishlatilgan edi, lekin ushbu loyihaga
+    # bog'langan Google hisobida "AQ." formatidagi kalitlar standart REST
+    # API bilan ishlamasligi aniqlandi (Google'ning o'zida davom etayotgan
+    # muammo). Keyin Bytez sinovdan o'tkazildi (pullik, credit asosida).
+    # Yakuniy yechim: Groq — butunlay bepul, doimiy tarif, OpenAI-mos
+    # standart format, kreditkarta shart emas (console.groq.com/keys).
+    GROQ_API_KEY: str | None = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
-    # Eski Gemini sozlamalari (hozircha ishlatilmaydi, lekin kelajakda
-    # provayder qaytarilsa deb saqlab turilgan — .env'da bo'lmasa ham xato
-    # bermaydi):
+    # Eski sozlamalar (hozircha ishlatilmaydi, lekin .env'da bo'lmasa ham
+    # xato bermasligi uchun saqlab turilgan):
+    BYTEZ_API_KEY: str | None = None
+    BYTEZ_MODEL: str = "google/gemma-3-4b-it"
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
